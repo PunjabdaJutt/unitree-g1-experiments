@@ -1,0 +1,103 @@
+# Port-Hamiltonian & IsaacLab Skill Set
+
+This markdown file defines a set of skills (capability modules) that you can reference from `skills.sh` and bind to Python implementations for the Unitree G1 port-Hamiltonian pipeline and IsaacLab experiments.[file:4]
+
+Each section gives a **skill name**, **purpose**, and **expected interfaces** so you can turn it into concrete shell aliases, environment presets, or dispatcher entries.
+
+---
+
+## Robot Model & Multibody Skills
+
+### `urdf_parser_g1`
+
+**Purpose**  
+Parse the Unitree G1 URDF/XACRO files and build a structured robot model containing links, joints, masses, COM offsets, inertia tensors, joint limits, and transforms.[file:4]
+
+**Responsibilities**
+- Load URDF/XACRO from disk (ROS or local path).
+- For every link: store mass, COM position, 3×3 inertia tensor in link frame.[file:4]
+- For every joint: store type (revolute/fixed), axis vector, parent–child transform (RPY + xyz), and joint limits.
+- Provide API: `RobotModel.from_urdf(path)`, `model.links`, `model.joints`.
+
+**Inputs/Outputs**
+- Input: URDF file path or ROS package name.
+- Output: `RobotModel` Python object used by multibody tree construction.
+
+---
+
+### `spatial_algebra_tree`
+
+**Purpose**  
+Build a Featherstone-style multibody tree with 6D spatial algebra (motion/force vectors, spatial transforms, spatial inertia) using the URDF-derived robot model.[file:4]
+
+**Responsibilities**
+- Define spatial motion vectors and spatial force vectors in Featherstone form.[file:4]
+- Implement spatial transforms `Xrot(E)`, `Xtrans(r)`, and joint transforms `XJ(axis, q)`.
+- Aggregate link inertias over fixed joints to form body spatial inertias.
+- Construct arrays: `parent[i]`, `Xtree[i]`, `I[i]`, `S[i]` for each movable joint.
+
+**Inputs/Outputs**
+- Input: `RobotModel` from `urdf_parser_g1`.
+- Output: `MultiBodyTree` containing 53 bodies for the G1 (53 movable joints).[file:4]
+
+---
+
+### `multibody_crba_rnea`
+
+**Purpose**  
+Provide efficient dynamics routines based on the Composite Rigid Body Algorithm (CRBA) and Recursive Newton–Euler Algorithm (RNEA) for the multibody tree.[file:4]
+
+**Responsibilities**
+- Implement CRBA to compute joint-space mass matrix `M(q)`.
+- Implement RNEA to compute inverse dynamics torques for given `(q, dq, ddq)`.
+- Validate `M(q)` as symmetric positive definite with reasonable eigenvalues.[file:4]
+
+**Inputs/Outputs**
+- Input: `MultiBodyTree`, joint configuration `q`.
+- Output: `M(q)`, inverse dynamics torques `tau_id(q, dq, ddq)`.
+
+---
+
+## Port-Hamiltonian Modeling Skills
+
+### `ph_state_builder`
+
+**Purpose**  
+Construct the canonical port-Hamiltonian state-space representation for the G1 tree: state `(q, p)`, Hamiltonian `H(q, p)`, and kinematics relations.[file:4]
+
+**Responsibilities**
+- Define state vector `x = [q; p]` with 53 joint coordinates and 53 momenta.[file:4]
+- Recover velocities via `dq = solve(M(q), p)` (linear solve, no explicit inverse).
+- Implement potential energy `U(q)` from COM positions and gravity.
+- Implement `H(q, p) = 0.5 * pᵀ M⁻¹ p + U(q)`.
+
+**Inputs/Outputs**
+- Input: `MultiBodyTree`, joint configuration `q`, momenta `p`.
+- Output: `H(q, p)`, `dq`, COM positions, and potential energy contributions.
+
+---
+
+### `ph_structure_matrices`
+
+**Purpose**  
+Define the port-Hamiltonian structure for the G1 in canonical form: interconnection matrix `J`, dissipation matrix `R`, and control port matrix `G`.[file:4]
+
+**Responsibilities**
+- Build Dirac interconnection matrix `J` with blocks `[[0, I], [-I, 0]]` of size 53.[file:4]
+- Define damping matrix `D(q)` (diagonal or sparse) and assemble `R`.
+- Build control port matrix `G` with sparse selection matrix `B` that activates the 12 HAND12 finger joints.[file:4]
+- Provide functions `J()`, `R(q)`, `G()`.
+
+**Inputs/Outputs**
+- Input: `MultiBodyTree`, finger joint index set HAND12.
+- Output: `J`, `R(q)`, `G`, and collocated outputs `y = B dq`.
+
+---
+
+### `ph_multibody_dae`
+
+**Purpose**  
+Implement the descriptor port-Hamiltonian differential-algebraic equations (PH-DAEs) for multibody systems, including constraints and stabilization.[file:13]
+
+**Responsibilities**
+- Define descriptor matrix `E(x)` and co-state `z(x)` such that `E(x) 7
