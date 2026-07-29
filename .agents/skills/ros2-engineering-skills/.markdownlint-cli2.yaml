@@ -1,0 +1,13 @@
+config:
+  # Allow long lines — reference files contain wide tables and code blocks
+  MD013: false
+  # Allow inline HTML — used in README for comparison tables
+  MD033: false
+  # Allow duplicate headings in different sections
+  MD024:
+    siblings_only: true
+  # Allow bare URLs in code blocks
+  MD034: false
+  # Table pipe spacing style (rule added in newer markdownlint): existing
+  # tables use compact pipes; disable so a future action bump doesn't break CI
+  MD060: false

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CycloneDDS xmlns="https://cdds.io/config">
+    <Domain Id="any">
+        <General>
+            <Interfaces>
+                <!--
+                  Pinned to the interface actually wired to the G1 (verified on
+                  the dev host: 192.168.123.150/24, same subnet as the robot).
+                  Do NOT leave this unset -- with no interface pinned,
+                  CycloneDDS is free to also discover on other host
+                  interfaces (e.g. a home/USB network), leaking DDS traffic
+                  and adding discovery noise. Override at container start
+                  with -e ROBOT_NET_IFACE=<your-iface> if your cabling
+                  differs; entrypoint.sh substitutes it in below.
+                -->
+                <NetworkInterface name="__ROBOT_NET_IFACE__" priority="default" multicast="default" />
+            </Interfaces>
+            <AllowMulticast>true</AllowMulticast>
+        </General>
+    </Domain>
+</CycloneDDS>

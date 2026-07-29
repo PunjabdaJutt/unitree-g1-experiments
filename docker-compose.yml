@@ -1,0 +1,43 @@
+services:
+  g1:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      args:
+        ROS_DISTRO: jazzy
+    image: unitree-g1-experiments:jazzy
+    # Host networking is required for DDS multicast discovery to reach the
+    # robot -- see .agents/skills/docker-ros2-development (bridge networking
+    # blocks multicast unless you hand-configure unicast peers).
+    network_mode: host
+    # CycloneDDS's interface enumeration (getifaddrs/netlink) needs these
+    # under Docker's default capability set, even with host networking --
+    # without them it reports the pinned interface as "not available" even
+    # though it's visible in the container's network namespace.
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    environment:
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
+      - ROBOT_NET_IFACE=${ROBOT_NET_IFACE:-eno1}
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+      - LIBGL_ALWAYS_SOFTWARE=${LIBGL_ALWAYS_SOFTWARE:-0}
+    volumes:
+      # Bind-mount source only; colcon build artifacts stay in the image /
+      # named volumes so edits don't require a full rebuild but also don't
+      # thrash a bind mount.
+      - ./ros2_ws/src:/ros2_ws/src:rw
+      - ros2_ws_build:/ros2_ws/build
+      - ros2_ws_install:/ros2_ws/install
+      - ros2_ws_log:/ros2_ws/log
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - ${HOME}/.Xauthority:/root/.Xauthority:ro
+    stdin_open: true
+    tty: true
+    command: bash
+
+volumes:
+  ros2_ws_build:
+  ros2_ws_install:
+  ros2_ws_log:

@@ -3,3 +3,9 @@ __pycache__/
 *.pyo
 .venv/
 *.log
+
+# colcon build artifacts (only matter if you build ros2_ws outside Docker;
+# the container itself uses named volumes, see docker-compose.yml)
+ros2_ws/build/
+ros2_ws/install/
+ros2_ws/log/
