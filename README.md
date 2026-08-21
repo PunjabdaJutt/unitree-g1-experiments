@@ -4,7 +4,7 @@ Experiments with the Unitree G1 humanoid: raw DDS control scripts (`high_level/`
 `low_level/`, `modes/`) built on the vendored `unitree_sdk2py` SDK
 (`.unitree_sdk2_python_src/`), a Port-Hamiltonian finger controller
 (`porthamiltonian/`), and a Dockerized ROS2 stack (`ros2_ws/`, `docker/`) for
-inspecting the robot's live topics and visualizing its pose in RViz.
+inspecting the robot's live topics and visualizing its pose in RViz or MuJoCo.
 
 ## ROS2 / Docker setup
 
@@ -50,7 +50,11 @@ docker-compose.yml
 ros2_ws/src/
   unitree/                 vendored unitree_go / unitree_hg / unitree_api (message defs only)
   g1_description/          G1 29dof + Inspire-hand URDF, meshes, RViz config
-  g1_bridge/                /lowstate -> /joint_states bridge node
+  g1_bridge/               /lowstate -> /joint_states, MuJoCo mirror, Inspire hand Modbus bridge
+.unitree_mujoco_src/       vendored unitreerobotics/unitree_mujoco (git submodule) -- isolated
+                           G1 simulator for sim-side controller dev, see "MuJoCo" below
+simulation/mujoco_menagerie/unitree_g1/  vendored google-deepmind/mujoco_menagerie G1 MJCF (reference
+                                          asset -- unitree_mujoco ships its own compatible copy, used instead)
 ```
 
 ### Network
@@ -62,6 +66,52 @@ peer config) and pins CycloneDDS to that one interface so discovery traffic
 doesn't also leak onto other host interfaces (this machine also has a
 second, unrelated network on `enx0a4428e05ec5`). Override with
 `ROBOT_NET_IFACE=<iface> docker compose ...` if your cabling differs.
+
+### MuJoCo
+
+Two independent, separately-runnable pieces:
+
+- **Live mirror** (`g1_bridge`'s `mujoco_mirror` node, launched via
+  `ros2 launch g1_bridge bridge.launch.py mujoco:=true`): kinematics-only,
+  drives a MuJoCo scene's `qpos` straight from `/joint_states` every
+  message (no `mj_step`, no gravity/contacts) so it always shows the real
+  robot's current pose. `/joint_states` has two independent publishers --
+  `joint_state_bridge` (29 body joints, from the robot's DDS `/lowstate`)
+  and `inspire_hand_modbus_bridge` (24 Inspire hand joints, launched with
+  `hands:=true` -- see below) -- `mujoco_mirror` just copies by joint name,
+  it doesn't care which one a name came from.
+- **Isolated sim** (`.unitree_mujoco_src/`, Unitree's own simulator):
+  makes MuJoCo act as a drop-in DDS substitute for the real robot -- it
+  subscribes `rt/lowcmd` and publishes `rt/lowstate` on the *same* topics
+  and IDL (`unitree_hg`) the physical G1 uses, just on an isolated
+  `domain_id`/interface (`1`/`lo`, set in
+  `.unitree_mujoco_src/simulate_python/config.py`) so it can never collide
+  with the real robot's `domain_id 0` traffic on the robot-facing NIC. Any
+  `unitree_sdk2py` controller script (e.g. the ones under
+  `.unitree_sdk2_python_src/example/`) can be pointed at this sim by
+  initializing its DDS channel with `(1, "lo")` instead of `(0, <robot NIC>)`
+  -- same code path, no real robot required. Run it (not inside the ROS2
+  container -- it only needs `unitree_sdk2py` + `mujoco`, both already in
+  `.venv/`, and must run outside a ROS2-sourced shell, see "Troubleshooting"):
+  ```bash
+  cd .unitree_mujoco_src/simulate_python
+  LD_LIBRARY_PATH=/home/ammar/.local/cyclonedds/lib ../../.venv/bin/python3 unitree_mujoco.py
+  ```
+
+#### Inspire hands: Modbus, not DDS
+
+Unlike the rest of the robot, the Inspire hands don't appear on this G1's
+DDS bus at all (`rt/inspire/state` never publishes) -- they're reachable
+directly as two Modbus TCP devices on the robot's `192.168.123.0/24`
+network (see `tools/inspire_hand_modbus_read.py` for the full writeup).
+Confirmed by observation against the physical robot: `192.168.123.210` is
+the anatomical **left** hand, `192.168.123.211` is **right** (the reverse
+of the factory host-octet order most other tools in this repo list them
+in). `inspire_hand_modbus_bridge` polls both directly and publishes their
+12-joint-per-hand angles (6 actuated + 6 mechanically-mimicked, see
+`g1_bridge/inspire_hand_kinematics.py`) onto `/joint_states`. Override the
+IPs with `ros2 launch g1_bridge bridge.launch.py hands:=true
+right_hand_ip:=... left_hand_ip:=...` if a hand is ever swapped/re-cabled.
 
 ### Install and build
 
@@ -109,11 +159,12 @@ robot -- listed in case any resurface after a distro bump or a fresh host:
 
 ### Known gaps / next steps
 
-- The bridge only republishes the 29 body-DOF joints (`motor_state[0..28]`,
-  matching `G1JointIndex` in `high_level/g1_arm5_sdk_dds_example.py`). The
-  Inspire hand's 12 finger actuators (`rt/inspire/state`, see
-  `low_level/inspire_hand_open_close.py`) aren't wired into `/joint_states`
-  yet -- the URDF's hand joints will just sit at their zero pose in RViz.
 - No IMU-based orientation broadcast (`imu_state.quaternion` in
   `LowState`) -- the model's root (`pelvis`) is fixed at the origin in
-  RViz rather than tilting/rotating with the robot.
+  RViz/MuJoCo rather than tilting/rotating with the robot.
+- `inspire_hand_modbus_bridge`'s mimic-joint ratios
+  (`g1_bridge/inspire_hand_kinematics.py`) are copied by hand from the
+  URDF's own `<mimic>` tags, since this MuJoCo version's URDF compiler
+  doesn't turn them into equality constraints (`model.neq == 0`). If
+  `g1_29dof_with_inspire_hand.urdf`'s hand geometry/ratios ever change,
+  that file needs updating to match.

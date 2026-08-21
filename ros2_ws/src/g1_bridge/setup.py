@@ -20,6 +20,12 @@ setup(
     entry_points={
         'console_scripts': [
             'joint_state_bridge = g1_bridge.joint_state_bridge:main',
+            'mujoco_mirror = g1_bridge.mujoco_mirror:main',
+            'inspire_hand_node = g1_bridge.inspire_hand_node:main',
+            'inspire_hand_modbus_bridge = g1_bridge.inspire_hand_modbus_bridge:main',
+            'camera_view = g1_bridge.camera_view:main',
+            'lidar_record_video = g1_bridge.lidar_record_video:main',
+            'mode_switcher_node = g1_bridge.mode_switcher_node:main',
         ],
     },
 )

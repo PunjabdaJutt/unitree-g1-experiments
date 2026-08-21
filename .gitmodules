@@ -1,3 +1,9 @@
 [submodule ".unitree_sdk2_python_src"]
 	path = .unitree_sdk2_python_src
 	url = https://github.com/unitreerobotics/unitree_sdk2_python.git
+[submodule ".unitree_mujoco_src"]
+	path = .unitree_mujoco_src
+	url = https://github.com/unitreerobotics/unitree_mujoco.git
+[submodule ".dfx_inspire_service_src"]
+	path = .dfx_inspire_service_src
+	url = https://github.com/unitreerobotics/DFX_inspire_service.git

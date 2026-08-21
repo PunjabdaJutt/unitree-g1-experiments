@@ -31,8 +31,18 @@ services:
       - ros2_ws_build:/ros2_ws/build
       - ros2_ws_install:/ros2_ws/install
       - ros2_ws_log:/ros2_ws/log
+      # Host-backed so camera/lidar recordings (camera_view, lidar_record_video)
+      # survive after the --rm container exits, unlike the named volumes above.
+      - ./output:/output:rw
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
-      - ${HOME}/.Xauthority:/root/.Xauthority:ro
+      # NOT ${HOME}/.Xauthority -- on this host (GDM/XWayland) that path
+      # doesn't exist, and Docker silently creates a bogus empty root-owned
+      # directory there when a bind-mount source is missing, which then
+      # fails auth inside the container ("Authorization required, but no
+      # authorization protocol specified"). ${XAUTHORITY} is the real cookie
+      # location for the running session; falls back to ~/.Xauthority for
+      # any host where that's actually where it lives.
+      - ${XAUTHORITY:-${HOME}/.Xauthority}:/root/.Xauthority:ro
     stdin_open: true
     tty: true
     command: bash

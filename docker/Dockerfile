@@ -23,11 +23,22 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-colcon-common-extensions \
     python3-rosdep \
+    python3-pip \
     ros-${ROS_DISTRO}-rmw-cyclonedds-cpp \
     ros-${ROS_DISTRO}-joint-state-publisher-gui \
     ros-${ROS_DISTRO}-xacro \
     ros-${ROS_DISTRO}-rosidl-generator-dds-idl \
-    libyaml-cpp-dev
+    libyaml-cpp-dev \
+    libglfw3
+
+# mujoco (mujoco_mirror node) and pymodbus (inspire_hand_modbus_bridge node)
+# have no rosdep/apt key, so they're pip-installed directly.
+# --break-system-packages is required on this image's Debian/Ubuntu Python
+# (PEP 668) -- there's no venv inside the container, everything runs
+# against the system interpreter that also has rclpy from apt. libglfw3
+# above backs the passive viewer's GL window; rendering needs the same
+# X11/DISPLAY plumbing docker-compose.yml already sets up for RViz.
+RUN pip install --no-cache-dir --break-system-packages mujoco pymodbus
 
 ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 ENV CYCLONEDDS_URI=file:///etc/cyclonedds.xml

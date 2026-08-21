@@ -10,7 +10,7 @@ Tested on Ubuntu 24.04 LTS (noble).
 
 ## 1. Clone the repo
 
-This repo vendors the Unitree SDK as a git submodule, so clone with
+This repo vendors the Unitree SDK and simulator as git submodules, so clone with
 `--recurse-submodules` (or run the `submodule update` step below if you
 already cloned without it):
 
@@ -79,12 +79,26 @@ xhost +local:docker
 docker compose run --rm g1 ros2 launch g1_bridge bridge.launch.py
 ```
 
+Add `mujoco:=true` for a MuJoCo window instead of/alongside RViz (`rviz:=false`
+to skip RViz), and `hands:=true` to also poll the Inspire hands over Modbus TCP
+and include their fingers:
+
+```bash
+docker compose run --rm g1 ros2 launch g1_bridge bridge.launch.py rviz:=false mujoco:=true hands:=true
+```
+
 Or view the URDF without the robot connected (slider GUI instead of live
 data):
 
 ```bash
 docker compose run --rm g1 ros2 launch g1_description display.launch.py
 ```
+
+See the "MuJoCo" section of [README.md](README.md) for the second,
+independent piece -- an isolated MuJoCo G1 simulator (Unitree's own
+`unitree_mujoco`, vendored at `.unitree_mujoco_src/`) that any
+`unitree_sdk2py` controller script can run against instead of the real
+robot, no Docker/ROS2 involved.
 
 ## Troubleshooting
 

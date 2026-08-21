@@ -10,8 +10,16 @@
   <buildtool_depend>ament_python</buildtool_depend>
 
   <depend>rclpy</depend>
+  <depend>std_srvs</depend>
   <depend>sensor_msgs</depend>
+  <depend>sensor_msgs_py</depend>
   <depend>unitree_hg</depend>
+  <depend>unitree_go</depend>
+  <depend>python3-opencv</depend>
+  <depend>python3-matplotlib</depend>
+  <!-- mujoco (mujoco_mirror.py) and pymodbus (inspire_hand_modbus_bridge.py)
+       have no rosdep/apt key, so they are installed via pip in
+       docker/Dockerfile instead of declared here. -->
 
   <exec_depend>g1_description</exec_depend>
   <exec_depend>robot_state_publisher</exec_depend>

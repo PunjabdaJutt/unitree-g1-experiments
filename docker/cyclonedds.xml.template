@@ -17,5 +17,16 @@
             </Interfaces>
             <AllowMulticast>true</AllowMulticast>
         </General>
+        <Internal>
+            <!--
+              Default socket receive buffer is too small for continuous
+              large payloads like /frontvideostream's JPEG frames (tens to
+              ~150KB each) -- causes dropped UDP fragments during reassembly,
+              which surfaces as repeating "invalid data size" / "unable
+              initialize generic sequence" errors from serdata.cpp. Small,
+              fixed-size topics (LowState, MotorStates, etc.) never hit this.
+            -->
+            <SocketReceiveBufferSize min="4MB"/>
+        </Internal>
     </Domain>
 </CycloneDDS>
