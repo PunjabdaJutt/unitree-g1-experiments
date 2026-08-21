@@ -7,3 +7,6 @@
 [submodule ".dfx_inspire_service_src"]
 	path = .dfx_inspire_service_src
 	url = https://github.com/unitreerobotics/DFX_inspire_service.git
+[submodule "simulation/Port-Hamiltonian-G1-Finger-Control"]
+	path = simulation/Port-Hamiltonian-G1-Finger-Control
+	url = https://github.com/PunjabdaJutt/Port-Hamiltonian-G1-Finger-Control.git
