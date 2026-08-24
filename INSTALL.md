@@ -100,6 +100,20 @@ independent piece -- an isolated MuJoCo G1 simulator (Unitree's own
 `unitree_sdk2py` controller script can run against instead of the real
 robot, no Docker/ROS2 involved.
 
+## Optional: hand detection for the handshake script
+
+`simulation/Port-Hamiltonian-G1-Finger-Control/scripts/g1_control/hardware/g1_hw_handshake.py`
+runs outside Docker (same host `.venv` as `camera_grabber.py` and the other
+direct-SDK hardware scripts) and needs `mediapipe` for camera-based hand
+detection, plus its `hand_landmarker.task` model asset:
+
+```bash
+.venv/bin/pip install mediapipe
+mkdir -p simulation/Port-Hamiltonian-G1-Finger-Control/scripts/g1_control/hardware/models
+curl -sL https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task \
+  -o simulation/Port-Hamiltonian-G1-Finger-Control/scripts/g1_control/hardware/models/hand_landmarker.task
+```
+
 ## Troubleshooting
 
 See the "Troubleshooting" section of [README.md](README.md) for issues hit
