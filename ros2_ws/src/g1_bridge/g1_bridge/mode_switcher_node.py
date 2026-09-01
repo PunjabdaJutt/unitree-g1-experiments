@@ -15,18 +15,17 @@ import rclpy
 from rclpy.node import Node
 from std_srvs.srv import Trigger
 
-# modes/g1_mode_switcher.py MODES keys -> service name suffix
+# modes/g1_mode_switcher.py MODES keys -> service name suffix. Keep this in
+# sync with that file's MODES dict -- it was previously stale (e.g.
+# 'locked_stand' pointed at key '5', which is actually exit_dev_mode) after
+# that script's modes were trimmed down to 0-5 only.
 MODE_KEYS = {
     'zero_torque': '0',
     'damp': '1',
     'sit': '2',
-    'ready_stand': '3',
-    'lie_stand': '4',
-    'locked_stand': '5',
-    'enter_dev_mode': '6',
-    'exit_dev_mode': '7',
-    'active_balance': '8',
-    'select_advanced': '9',
+    'locked_stand': '3',
+    'enter_dev_mode': '4',
+    'exit_dev_mode': '5',
 }
 
 SWITCHER_SCRIPT = os.environ.get(
