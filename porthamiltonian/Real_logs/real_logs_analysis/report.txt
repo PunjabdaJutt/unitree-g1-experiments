@@ -1,0 +1,178 @@
+==============================================================================
+1. FILE PROFILE
+==============================================================================
+                           file category  rows  duration_s  n_segments  missing_cells
+      arm_ph_ph_20260918_183908        A   171       17.08           6              0
+arm_ph_position_20260918_184048        A   171       17.08           6              0
+                main_185109_arm        B  1195       36.72          14              0
+                  sg_173308_arm        B  1213       36.72          14              0
+                  sg_173640_arm        B  1110       36.72          14              0
+                  sg_173920_arm        B  1034       36.72          14              0
+                  sg_174410_arm        B  1040       36.70          14              0
+               main_185109_hand        B  1194       36.72          14              0
+                 sg_173308_hand        B  1212       36.72          14              0
+                 sg_173640_hand        B  1109       36.72          14              0
+                 sg_173920_hand        B  1033       36.72          14              0
+                 sg_174410_hand        B  1039       36.70          14              0
+
+NOTE: STATE_LOG_HZ=10 for every file here (see REAL_LOGS_ARCHITECTURE.md) -- this is
+      a 10 Hz snapshot of the real ~50 Hz (control_dt=0.02s) control loop, not the
+      control-rate signal itself. Any claim about servo-rate dynamics is aliased away.
+
+==============================================================================
+2. CATEGORY A -- g1_hw_arm_ph_control.py: PH TORQUE vs. POSITION-PD BASELINE
+==============================================================================
+Same choreography (hold_in -> move_to_pose -> hold_torque -> return -> release), run
+back-to-back, only 'hold_torque' switches control law. See section 'Control law,
+hold_torque segment only' in REAL_LOGS_ARCHITECTURE.md for the exact equations.
+
+hold_torque tracking error (measured - qdes), right-arm joints, both modes:
+    mode          joint  n  mean_err_rad  abs_mean_err_rad  max_abs_err_rad  std_err_rad
+      ph shoulder_pitch 50       0.14875           0.14875          0.15011      0.00491
+      ph  shoulder_roll 50      -0.01980           0.01980          0.02017      0.00046
+      ph   shoulder_yaw 50      -0.00006           0.00010          0.00347      0.00049
+      ph          elbow 50       0.17424           0.17424          0.17864      0.01724
+      ph     wrist_roll 50      -0.00834           0.00834          0.00849      0.00044
+      ph    wrist_pitch 50       0.13674           0.13674          0.14108      0.01748
+      ph      wrist_yaw 50       0.00155           0.00155          0.00172      0.00020
+position shoulder_pitch 50       0.12437           0.12437          0.13079      0.00093
+position  shoulder_roll 50      -0.01668           0.01668          0.01768      0.00016
+position   shoulder_yaw 50      -0.00036           0.00036          0.00383      0.00050
+position          elbow 50       0.08250           0.08250          0.08944      0.00100
+position     wrist_roll 50      -0.00230           0.00230          0.00587      0.00066
+position    wrist_pitch 50       0.03794           0.03794          0.04533      0.00108
+position      wrist_yaw 50       0.00047           0.00047          0.00051      0.00003
+
+--mode ph, hold_torque: commanded torque = gravity-comp g(q) + PD feedback:
+         joint  mean_tau_Nm  mean_g_Nm  mean_feedback_Nm  abs_mean_feedback_Nm  peak_abs_tau_Nm
+shoulder_pitch      -5.2385    -2.9937           -2.2449                2.2449           5.3372
+ shoulder_roll       0.7197     0.4181            0.3016                0.3016           0.7454
+  shoulder_yaw       0.0517     0.0584           -0.0067                0.0099           0.0739
+         elbow      -3.3321    -1.5837           -1.7483                1.7483           3.3816
+    wrist_roll       0.0450     0.0098            0.0352                0.0352           0.0620
+   wrist_pitch      -0.8902    -0.4707           -0.4196                0.4196           1.0828
+     wrist_yaw       0.0070     0.0119           -0.0049                0.0050           0.0128
+
+=> mean_tau ~= mean_g with small |feedback| means gravity comp is doing most of the
+   work and the impedance term is only making small corrections (expected at a held
+   pose); a large |feedback| relative to g means the arm is fighting the pose, not
+   resting at it (possible under-/over-compensation).
+
+did either run abort into the runaway-watchdog winddown early (segment sequence
+never reaching 'release', or ending short of the nominal 17.08s)?
+  [ph] final segment='done', duration=17.08s
+  [position] final segment='done', duration=17.08s
+
+==============================================================================
+3. CATEGORY B -- grasp_ph.py: ARM (position-PD) + HAND (PH-admittance) GRASP RUNS
+==============================================================================
+
+[EXCLUDED] Successfull_grasps/arm_positions_20260917_141924.csv: 68 rows, no matching hand_state file -- an
+           arm-only partial/early run, segments=['hold', 'ready'].
+           Not part of the 5-run comparison below.
+
+[NOTE] the 4 Successfull_grasps/ arm_positions_*.csv files (['sg_173308', 'sg_173640', 'sg_173920', 'sg_174410']) use an
+       even older 32-column schema than their hand_state companions: raw G1_JOINT_NAMES
+       positions only, no qdes_rad/qerr_rad at all (grasp_ph.py hadn't added arm tracking
+       logging yet). Only ['main_185109'] has qerr_rad -- the table below is that ONE run,
+       not a 5-run average, despite covering the same 5-run comparison elsewhere in this
+       report. See fig03b for what IS available (raw position) across all 5 runs.
+
+arm tracking: mean |qerr| [rad] per segment x right-arm joint (main_185109 only):
+joint         shoulder_pitch  shoulder_roll  shoulder_yaw   elbow  wrist_roll  wrist_pitch  wrist_yaw
+segment                                                                                              
+hold                  0.0016         0.0010        0.0014  0.0041      0.0227       0.0065     0.0025
+side_up               0.0395         0.0457        0.0416  0.0592      0.0171       0.0325     0.0091
+approach_out          0.0536         0.0770        0.0370  0.0456      0.0023       0.0177     0.0017
+approach              0.1180         0.0532        0.0294  0.0794      0.0026       0.0371     0.0021
+descend               0.1342         0.0149        0.0154  0.0601      0.0094       0.0240     0.0036
+grasp                 0.1311         0.0024        0.0100  0.0646      0.0066       0.0259     0.0011
+grasp_hold            0.1304         0.0021        0.0106  0.0653      0.0059       0.0262     0.0013
+lift                  0.1516         0.0105        0.0286  0.0872      0.0043       0.0320     0.0018
+lift_hold             0.1521         0.0170        0.0419  0.0699      0.0057       0.0153     0.0046
+lower                 0.1086         0.0035        0.0215  0.0576      0.0065       0.0156     0.0051
+release               0.0984         0.0016        0.0127  0.0650      0.0002       0.0259     0.0027
+retreat               0.0933         0.0307        0.0335  0.0853      0.0042       0.0338     0.0049
+retreat_out           0.0862         0.0741        0.0503  0.0576      0.0090       0.0194     0.0054
+side_down             0.3352         0.3088        0.2487  0.7468      0.8060       0.4280     0.3870
+
+=> 'side_down' is an outlier: wrist_roll=0.806 rad, roughly 5x the worst error seen in any other segment across all 5 runs, on every right-arm joint at once -- worth checking against that segment's own IK target/speed rather than treating it as ordinary tracking noise.
+
+right-hand grasp_hold (FORCE mode), settled window (last 50% of grasp_hold rows), per run:
+        run       joint  pos_rad  force_g  qerr_rad  tau_des_Nm  max_abs_force_g
+main_185109   thumb_yaw    0.440  572.240     0.000        0.75           5320.0
+main_185109 thumb_pitch    0.112   45.320    -0.002        0.75             50.0
+main_185109       index    1.212  242.160    -0.000        0.75            259.0
+main_185109      middle    1.350  286.000    -0.000        0.75            338.0
+main_185109        ring    1.377  253.200     0.002        0.75            293.0
+main_185109       pinky    1.376  240.840     0.001        0.75            338.0
+  sg_173308   thumb_yaw    0.554 -150.115       NaN         NaN            192.0
+  sg_173308 thumb_pitch    0.114   35.462       NaN         NaN             40.0
+  sg_173308       index    1.420  201.385       NaN         NaN            229.0
+  sg_173308      middle    1.566  138.538       NaN         NaN            149.0
+  sg_173308        ring    1.522  108.577       NaN         NaN            115.0
+  sg_173308       pinky    0.226  291.885       NaN         NaN            325.0
+  sg_173640   thumb_yaw    0.551 -167.318       NaN         NaN            227.0
+  sg_173640 thumb_pitch    0.113   38.727       NaN         NaN             41.0
+  sg_173640       index    1.464  183.545       NaN         NaN            208.0
+  sg_173640      middle    1.302  309.045       NaN         NaN            344.0
+  sg_173640        ring    1.248  260.409       NaN         NaN            343.0
+  sg_173640       pinky    0.051  332.136       NaN         NaN            349.0
+  sg_173920   thumb_yaw    0.552 -162.762       NaN         NaN            227.0
+  sg_173920 thumb_pitch    0.114   47.524       NaN         NaN             53.0
+  sg_173920       index    1.209  239.857       NaN         NaN            254.0
+  sg_173920      middle    1.356  265.524       NaN         NaN            334.0
+  sg_173920        ring    1.374  176.524       NaN         NaN            325.0
+  sg_173920       pinky    1.377  242.762       NaN         NaN            303.0
+  sg_174410   thumb_yaw    0.458  -15.182       NaN         NaN            132.0
+  sg_174410 thumb_pitch    0.114   36.318       NaN         NaN             39.0
+  sg_174410       index    1.408  198.273       NaN         NaN            241.0
+  sg_174410      middle    1.468  120.682       NaN         NaN            218.0
+  sg_174410        ring    1.476  483.227       NaN         NaN            941.0
+  sg_174410       pinky    1.471  162.864       NaN         NaN            578.0
+
+[HARDWARE FAULT] thumb_yaw (KNOWN-FAULTY sensor/actuator on this robot -- disregard as a control signal): the thumb_yaw force/position readings
+       above (including its sign flip between runs and its multi-thousand-gram spikes,
+       see the force-guard check below) are KNOWN to come from faulty sensor/actuator
+       hardware on this physical robot, confirmed independently of this log analysis.
+       Do not read them as evidence about the PH admittance law -- every other joint's
+       numbers in this section are unaffected and should be trusted normally.
+
+[NOTE] ['sg_173308', 'sg_173640', 'sg_173920', 'sg_174410']: hand_state log predates the qdes_rad/qerr_rad/tau_des_Nm
+       columns (older grasp_ph.py hand-log header, 4 cols/joint, same as
+       Successfull_grasps/'s other early runs) -- qerr_rad/tau_des_Nm are NaN for
+       these runs; pos_rad/force_g are still directly comparable across all 5 runs.
+
+cross-run consistency of the settled grasp_hold state (std across the 5 runs, per joint):
+            pos_rad           force_g           tau_des_Nm    
+               mean     std      mean       std       mean std
+joint                                                         
+index        1.3427  0.1224  213.0440   26.4149       0.75 NaN
+middle       1.4084  0.1069  223.9579   87.7201       0.75 NaN
+pinky        0.9002  0.6993  254.0973   63.5331       0.75 NaN
+ring         1.3994  0.1062  256.3874  141.1637       0.75 NaN
+thumb_pitch  0.1133  0.0007   40.6702    5.4415       0.75 NaN
+thumb_yaw    0.5111  0.0570   15.3725  317.6197       0.75 NaN
+=> ignore the 'thumb_yaw' row above -- known-faulty hardware (see note
+   above), its force sign/magnitude is unreliable and not a control-law signal. For the
+   remaining (healthy) joints: low force_g std relative to its mean means the grip
+   settles to a repeatable force regardless of run; a high std (or a std comparable to
+   the mean, as seen here) means the settled grip is sensitive to run-to-run variation
+   (grasp geometry/timing), consistent with report.md's simulation-side finding that
+   force-mode equilibria are impedance-, not position-, driven.
+
+force-guard sanity: max |force_g| reached anywhere in grasp_hold, right hand, per run
+(compare against g1_hw_ph_finger_control.py's FORCE_FAULT_ABS_G=1000g sensor-fault
+gate and its modbus_force_limit_g default=600g hard Modbus stop):
+joint        index  middle  pinky   ring  thumb_pitch  thumb_yaw
+run                                                             
+main_185109  259.0   338.0  338.0  293.0         50.0     5320.0
+sg_173308    229.0   149.0  325.0  115.0         40.0      192.0
+sg_173640    208.0   344.0  349.0  343.0         41.0      227.0
+sg_173920    254.0   334.0  303.0  325.0         53.0      227.0
+sg_174410    241.0   218.0  578.0  941.0         39.0      132.0
+=> the 'thumb_yaw' column's multi-thousand-gram peaks (main_185109:
+   5320 g) are the known hardware fault, not a real
+   grip force -- expected given the confirmed-faulty sensor/actuator, not a finding
+   about FORCE_FAULT_ABS_G's threshold placement.
+   Among the healthy joints, 'ring' in run 'sg_174410' reaches 941 g -- above the 600g modbus_force_limit_g default and close to the 1000g fault gate, unlike every other healthy joint/run in this table (all comfortably under 600g). Worth a second look on that run specifically before assuming it's just a firmer grip.

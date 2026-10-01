@@ -1,0 +1,42 @@
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\columnwidth]{fig01_armA_tracking.pdf}
+  \caption{Measured-minus-commanded joint angle for each right-arm joint, comparing the --mode ph run (red) against the --mode position baseline (gray) run back-to-back on the same choreography. Shaded band is the hold_torque segment, the only one where the two modes' control law actually differs.}
+  \label{fig:armA_tracking}
+\end{figure}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\columnwidth]{fig02_armA_torque_breakdown.pdf}
+  \caption{Mean commanded right-arm torque during hold_torque, split into the gravity-compensation term $g(q)$ and the remaining proportional-derivative feedback correction. A feedback term small relative to $g(q)$ indicates the arm is resting near its target with gravity comp doing most of the work.}
+  \label{fig:armA_torque_breakdown}
+\end{figure}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\columnwidth]{fig03_armB_tracking_heatmap.pdf}
+  \caption{Mean absolute right-arm tracking error, by trajectory segment and joint, for main_185109 -- the only one of the 5 grasp_ph.py runs whose arm_positions log includes qdes_rad/qerr_rad (the 4 Successfull_grasps/ runs use an older, position-only schema; see fig03b for what's available across all 5). Position-PD only (grasp_ph.py never applies a torque law to the arm) -- large values here reflect IK/trajectory tracking, not gravity sag.}
+  \label{fig:armB_tracking_heatmap}
+\end{figure}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\columnwidth]{fig03b_armB_position_timeline.pdf}
+  \caption{Measured right-arm joint angle, all 5 grasp_ph.py runs overlaid per joint (main_185109 plus the 4 Successfull_grasps/ pairs). This is raw position, NOT tracking error: the 4 Successfull_grasps/ arm_positions logs have no qdes_rad/qerr_rad columns at all (an older, position-only schema -- see the note in the report accompanying fig03), so error can only be computed for main_185109 (fig03). Shaded bands mark grasp_hold (orange) and side_down (tan), taken from main_185109's own segment timing -- other runs' segment boundaries land at similar but not identical times, since these are independent real-hardware runs, not a synchronized replay. Tight agreement between traces across runs is evidence of repeatable IK/trajectory execution even without a logged error signal; visible divergence is worth a closer look at that specific run.}
+  \label{fig:armB_position_timeline}
+\end{figure}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\columnwidth]{fig04_handB_timeline.pdf}
+  \caption{Right-hand position, measured contact force, and force-mode spring target ($\tau_d$, PHContactForceController's internal state) over the whole grasp_ph.py choreography. Shaded band is grasp_hold, the only FORCE-mode segment. thumb_yaw (KNOWN-FAULTY sensor/actuator on this robot -- disregard as a control signal) -- its multi-thousand-gram force spikes in the middle panel are a confirmed sensor/actuator fault on this robot, not a control-law effect, and should be disregarded. Note also that $\tau_d$ does NOT return to 0 after grasp_hold ends: PHContactForceController._tau_d is only ever written by set_force_mode(), so it stays latched at the grasp target through lift/lower/release -- contrary to grasp_ph.py's own header comment claiming it reads 0 outside grasp_hold.}
+  \label{fig:handB_timeline}
+\end{figure}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\columnwidth]{fig05_handB_cross_run_consistency.pdf}
+  \caption{Right-hand joint position and contact force in the settled half of grasp_hold, mean and standard deviation across the 5 independent grasp_ph.py runs. Small error bars indicate a repeatable settled state across runs; large ones indicate sensitivity to run-to-run variation in grasp geometry/timing. thumb_yaw (KNOWN-FAULTY sensor/actuator on this robot -- disregard as a control signal) (plotted in red): its apparent sign flip and large spread across runs is a confirmed hardware fault on this robot, not evidence of impedance-driven variability -- read only the other (blue) joints as control-law evidence.}
+  \label{fig:handB_cross_run_consistency}
+\end{figure}
+

@@ -1,0 +1,59 @@
+{
+  "$comment": "Safety gate for scripts under scripts/g1_control/hardware/ that publish rt/arm_sdk. Read this before writing or running any new script here -- enforced by hw_safety.py, not just documentation.",
+  "incident": {
+    "date": "2026-08-21",
+    "summary": "g1_hw_arm_hand_test.py was run while the robot was in Damp (fsm_id=1). The Inspire hands (Modbus, not DDS) closed as commanded; the arms did not move, because Damp's whole-body controller does not act on rt/arm_sdk. The script kept publishing rt/arm_sdk LowCmd_ samples the whole run. When the operator then switched the robot to Locked Standing (fsm_id=4) via g1_mode_switcher.py, fsm 4 started honoring rt/arm_sdk and the arms immediately snapped to whatever command was last on the wire -- an unexpected, uncommanded arm movement triggered purely by the mode switch, not by anything the operator ran at that moment."
+  },
+  "required_state": {
+    "allowed_fsm_ids": [1,4, 501],
+    "fsm_names": {"4": "locked_standing", "501": "active_balance_run"},
+    "why": "fsm_id 4 (Locked Standing) is the No-Balance-Control state this repo originally confirmed honors rt/arm_sdk overrides predictably. Damp (fsm_id 1) does not visibly act on arm_sdk, but a command published while in Damp is still cached/latent and can be acted on instantly by a later mode switch -- see incident above. Do not assume any other fsm_id is safe without adding it here deliberately.",
+    "fsm_501_note": "Added 2026-08-24 at operator's explicit instruction -- operator states fsm 501 (active balance / run) has been tested and validated safe on their hardware for rt/arm_sdk use. Unlike fsm 4, this is a Balance-Control-Active state (the whole-body balance controller is live/dynamic, not static), which is a different risk category from the original incident this file documents -- flagged here in case it needs re-examination later, not because it's assumed equivalent to fsm 4."
+  },
+  "pre_run_requirements": [
+    "Publish several neutral rt/arm_sdk samples (kNotUsedJoint weight = 0.0, i.e. arm_sdk released back to the whole-body FSM) before anything else, to overwrite any stale command left by a previous run, crash, or Ctrl+C -- see hw_safety.flush_stale_arm_sdk().",
+    "Query GetFsmId() via LocoClient and confirm it equals required_state.fsm_id before starting the real control loop. Abort with a clear message pointing at g1_mode_switcher.py mode 3 if it does not match -- see hw_safety.require_locked_standing(). Do not auto-switch FSM state from inside a hardware test script; the incident above was triggered by a mode switch happening while a stale command was live.",
+    "On exit -- normal completion, Ctrl+C, or exception -- stop the control thread and publish a final neutral (weight=0) rt/arm_sdk sample before the process ends, so the topic is never left retained at weight=1.0 with a stale position target. See hw_safety and each script's Shutdown(). Scripts that can be interrupted while the arm is mid-motion or mid-hold (e.g. a wait_for_object gate, or a visual-servo approach) must additionally ramp the arm_sdk weight down to 0 over a couple of seconds first -- see graceful_winddown below -- rather than dropping straight to weight=0 from wherever the arm happened to be."
+  ],
+  "graceful_winddown": {
+    "why": "An abrupt weight=1.0 -> 0.0 step on Shutdown() hands control straight to the whole-body FSM's own arm controller (at a similarly high stiffness, arm_kp~60 by default) from wherever the arm happened to be at that instant -- which looks and feels like a hard snap if it happens mid-motion, or mid-hold during an indefinite wait (e.g. g1_hw_arm_hand_test.py's wait_for_object segments hold the arm open, at height, for an unbounded duration waiting for an object -- Ctrl+C at any point during that hold must not snap the arm). This is a different failure mode from the incident above (no fsm switch involved, weight goes to 0 predictably) but produces a similarly startling uncommanded-feeling motion, so it gets the same seriousness.",
+    "how": "On every exit path (normal completion, Ctrl+C, exception), first freeze the arm at its last commanded pose and ramp the arm_sdk weight down to 0 over --shutdown_ramp_s (2s default), THEN publish the final neutral (weight=0) sample from hw_safety.publish_neutral_arm_sdk() as the last-resort guarantee. Implemented as start_winddown()/winddown_done() on the per-script controller (not centralized in hw_safety.py, since each controller's per-tick command-building loop is bespoke) -- see g1_hw_handshake_visual.HandshakeVisualController.start_winddown() (original implementation), g1_hw_arm_hand_test.Custom.start_winddown() (same pattern, added 2026-09-02 alongside the wait_for_object gate), and g1_hw_ph_finger_control.Custom.start_winddown() (same pattern again, added 2026-09-07 -- also keeps forcing both hands open every winddown tick, since that controller's admittance loop actively commands the hand every tick unlike the other two's fire-and-forget firmware ramp).",
+    "rule_for_new_actuation_code": "Any NEW script under this directory that publishes rt/arm_sdk must implement this same start_winddown()/winddown_done() pattern in its controller class before it's considered done -- not just the fsm-state gate and a bare Shutdown(). Check for it explicitly when writing or reviewing such a script, the same way require_locked_standing()/flush_stale_arm_sdk() are already checked for. A script whose control loop only fires its target once per segment (not every tick) can get away with a lighter version, but still needs SOME graceful ramp-to-0 on interrupt, not an abrupt weight step.",
+    "applies_to": ["g1_hw_arm_hand_test.py", "g1_hw_handshake_visual.py", "g1_hw_ph_finger_control.py", "grasp_ph.py (via g1_hw_ph_finger_control.Custom, which it reuses unmodified)", "grasp_absolute.py (via g1_hw_ph_finger_control.Custom, which it reuses unmodified)", "g1_hw_arm_ph_control.py -- same start_winddown()/winddown_done() pattern, added 2026-09-18 alongside the right-arm gravity-comp/PH-torque bench test; winddown always falls back to plain position-PD (Custom._write_position_law()) holding the arm at its last commanded pose regardless of which control law (--mode position/ph) was active when the exit path fired, since a torque law is exactly the thing NOT to trust mid-shutdown."],
+    "not_yet_applied": ["g1_hw_handshake.py -- re-instantiates a fresh Custom per handshake cycle without a winddown step; lower risk since HANDSHAKE_POSE is a small fixed pose, not an open-ended hold, but worth revisiting if it becomes interruptible mid-grip."]
+  },
+  "wait_for_object_gate": {
+    "summary": "g1_hw_arm_hand_test.py's Segment(wait_for_object=True) (added 2026-09-02, currently used by the 'open_hand' segment) holds the arm at its commanded pose -- rt/arm_sdk kept at weight=1.0, publishing the same hold command every tick -- for an UNBOUNDED duration (unless --object_wait_timeout_s is set) while polling the right Inspire hand's FORCE_ACT for a pressed-in object, same detection style as g1_hw_handshake.py's FORCE_SET-capped grip.",
+    "why_flagged_here": "This is the first indefinite (not fixed-T) hold in this directory's segment-based scripts -- flagged so a reviewer knows it's intentional, not a hang, and specifically so the graceful_winddown requirement above is not skipped for it: an operator is expected to Ctrl+C out of a wait that's taking too long, and that exit path is exactly the one graceful_winddown covers.",
+    "not_a_new_fsm_risk": "Does not change anything about required_state or the original incident -- still gated by the same flush_stale_arm_sdk()/require_locked_standing() calls before the loop starts, and the hold is just a normal weight=1.0 rt/arm_sdk publish like any other segment, not a new latent/stale-command pathway."
+  },
+  "applies_to": [
+    "g1_hw_arm_hand_test.py",
+    "g1_hw_ph_finger_control.py",
+    "g1_hw_handshake.py",
+    "g1_hw_handshake_visual.py",
+    "main_grasp_loop.py",
+    "grasp_ph.py",
+    "grasp_absolute.py",
+    "g1_hw_arm_ph_control.py"
+  ],
+  "not_applicable": [
+    "g1_hw_finger_close_only.py -- never publishes rt/arm_sdk or rt/lowcmd (hands only, over Modbus), so this hazard does not apply to it.",
+    "Detection/test_perception_only.py -- camera + YOLO + depth math only, never imports g1_controller or touches rt/arm_sdk/rt/lowcmd or the Inspire hand's Modbus connection, so neither the fsm-state gate nor graceful_winddown applies. Ctrl+C just closes the camera subscriber and display window (try/except KeyboardInterrupt + finally, same idiom as detection.py's own standalone viewer) -- no arm state to wind down.",
+    "dry_run_grasp.py -- runs main_grasp_loop.py's full detect -> localize -> generate waypoints -> solve IK pipeline (duplicates detect_and_localize() rather than importing main_grasp_loop.py, specifically to avoid pulling in g1_controller) and only prints the result. ik_two_hands_dls (ph.kinematics) is pure numpy -- no DDS, no rt/arm_sdk, no Modbus -- so neither the fsm-state gate nor graceful_winddown applies. Ctrl+C just closes the camera subscriber -- no arm state to wind down.",
+    "log_joint_positions.py -- read-only rt/lowstate subscriber (all 29 body motors) that logs a snapshot to CSV on keypress. Never publishes rt/arm_sdk, rt/lowcmd, or anything over Modbus, so neither the fsm-state gate nor graceful_winddown applies -- safe to run in any fsm state, including while the arm is being posed by hand or driven by another script."
+  ],
+  "enforced_by": "hw_safety.py (require_locked_standing, flush_stale_arm_sdk, publish_neutral_arm_sdk)",
+  "remote_control_reference": {
+    "note": "The physical remote drives FSM transitions directly on the robot's firmware, independent of this repo's scripts -- require_locked_standing()/flush_stale_arm_sdk() only guard code that goes through the SDK. Someone on the physical remote can still put the robot into fsm 500 (active balance/walk-run) at any time regardless of what mode this script or g1_mode_switcher.py currently allows.",
+    "R1+Y": "Entry gesture into fsm_id 500 (active balance / walk-run) on 3-DOF-waist G1 units -- Unitree's docs call this the recommended combo for that variant. R1+X is the equivalent for other waist variants. Same state g1_mode_switcher.py's removed mode 6 (to_active_balance) used to set via SetFsmId(500).",
+    "keep_stepping": "Double-click START while in active balance (fsm 500). Unitree's own docs mark this 'not recommended'. No SDK/RPC equivalent exists in G1's LocoClient (g1_loco_client.py) -- firmware-internal only, cannot be triggered or blocked from Python.",
+    "speed_mode": "Double-click L2 = low speed, double-click L1 = high speed. Likely maps to LocoClient.SetSpeedMode(speed_mode) (API 7107, g1_loco_client.py:99), but there is no GetSpeedMode RPC and no speed_mode field in unitree_hg LowState_, so the live value can't be read back over DDS -- unconfirmed which integer means low vs high.",
+    "offset_compensation": "Hold R1 + arrow keys trims left/right/forward/backward. No SDK API found for this anywhere in .unitree_sdk2_python_src -- firmware-internal only, not observable or settable over DDS.",
+    "observing_remote_input": "rt/lf/lowstate's wireless_remote (uint8[40]) carries the raw button/stick state -- decoded by .unitree_sdk2_python_src/example/wireless_controller/wireless_controller.py (R1=bit0 of byte[2], L1=bit1, START=bit2, L2=bit5, Y=bit3 of byte[3]). This only shows the remote's raw input, not the resulting FSM state -- still poll GetFsmId()/GetFsmMode() afterward to see what actually changed.",
+    "sources": [
+      "https://docs.quadruped.de/projects/g1/html/operation_1.4.html",
+      "https://docs.quadruped.de/projects/g1/html/operation_1.2.html"
+    ]
+  }
+}

@@ -1,0 +1,38 @@
+figure,quantity,value,unit
+fig1,"Shoulder pitch: steady hold error, PH",0.1501,rad
+fig1,"Shoulder pitch: steady hold error, PD",0.1242,rad
+fig1,"Elbow: steady hold error, PH",0.1786,rad
+fig1,"Elbow: steady hold error, PD",0.0824,rad
+fig1,"Wrist pitch: steady hold error, PH",0.141,rad
+fig1,"Wrist pitch: steady hold error, PD",0.0377,rad
+fig3,Shoulder pitch: model gravity torque g(q),2.981,Nm
+fig3,"Shoulder pitch: holding torque, PH run (tau + floor)",5.6932,Nm
+fig3,"Shoulder pitch: holding torque, PD run (60 x error)",7.4544,Nm
+fig3,Elbow: model gravity torque g(q),1.5769,Nm
+fig3,"Elbow: holding torque, PH run (tau + floor)",3.8998,Nm
+fig3,"Elbow: holding torque, PD run (60 x error)",4.9415,Nm
+fig3,Wrist pitch: model gravity torque g(q),0.4696,Nm
+fig3,"Wrist pitch: holding torque, PH run (tau + floor)",1.3153,Nm
+fig3,"Wrist pitch: holding torque, PD run (60 x error)",2.2648,Nm
+fig4,Shoulder pitch: PH error measured,0.1501,rad
+fig4,Shoulder pitch: PH error if tau were ignored,1.8977,rad
+fig4,Elbow: PH error measured,0.1786,rad
+fig4,Elbow: PH error if tau were ignored,1.2999,rad
+fig4,Wrist pitch: PH error measured,0.141,rad
+fig4,Wrist pitch: PH error if tau were ignored,0.4384,rad
+fig5,largest forward lean of waist pitch,0.1205,rad
+fig6,shoulder pitch error in grasp hold (median),0.1304,rad
+fig6,"largest shoulder pitch error, side_down excluded",0.1713,rad
+fig6,largest shoulder pitch error inside side_down,0.9813,rad
+fig7,thumb pitch: mean force in grasp hold,0.4437,N
+fig7,thumb pitch: mean force in lift hold,0.5765,N
+fig7,index: mean force in grasp hold,2.4284,N
+fig7,index: mean force in lift hold,2.3865,N
+fig7,middle: mean force in grasp hold,2.5751,N
+fig7,middle: mean force in lift hold,2.2849,N
+fig7,ring: mean force in grasp hold,2.4206,N
+fig7,ring: mean force in lift hold,2.3373,N
+fig7,pinky: mean force in grasp hold,1.9367,N
+fig7,pinky: mean force in lift hold,2.3042,N
+fig7,logged force-mode target tau_d,0.75,Nm
+fig7,thumb yaw peak |force|,58.0848,N

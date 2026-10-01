@@ -1,0 +1,24 @@
+analyze_step_response.py -- diagnostic report
+URDF: unitree_g1_inspire_assets/g1_29dof_rev_1_0_with_inspire_hand_DFQ.urdf
+armature=0.01  Kf=1.0  K_spr=2.5  (K=Kf*K_spr=2.500)
+current Kd (--ph_kd)=1.4  finger_tau_clamp=1.0
+target_zeta (retuned)=0.6
+
+== R_index_proximal_joint ==
+  M_eff = 0.01001 kg*m^2 (armature-dominated)
+  [current] K=2.500 Kd=1.400 tau_clamp=1.0
+    analytic:  zeta=4.424  wn=15.80 rad/s  overshoot=0.0%  settle2%=2211ms  no-overshoot condition (Kd^2>=4*K*M)? True
+    simulated: overshoot=0.0%  rise(10-90%)=1217ms  settle2%=2167ms
+  [retuned] K=2.500 Kd=0.190 tau_clamp=0.0
+    analytic:  zeta=0.600  wn=15.80 rad/s  overshoot=9.5%  settle2%=422ms  no-overshoot condition (Kd^2>=4*K*M)? False
+    simulated: overshoot=9.5%  rise(10-90%)=117ms  settle2%=375ms
+
+== R_thumb_proximal_pitch_joint ==
+  M_eff = 0.01005 kg*m^2 (armature-dominated)
+  [current] K=2.500 Kd=1.400 tau_clamp=1.0
+    analytic:  zeta=4.416  wn=15.77 rad/s  overshoot=0.0%  settle2%=2211ms  no-overshoot condition (Kd^2>=4*K*M)? True
+    simulated: overshoot=0.0%  rise(10-90%)=1217ms  settle2%=2167ms
+  [retuned] K=2.500 Kd=0.190 tau_clamp=0.0
+    analytic:  zeta=0.600  wn=15.77 rad/s  overshoot=9.5%  settle2%=423ms  no-overshoot condition (Kd^2>=4*K*M)? False
+    simulated: overshoot=9.5%  rise(10-90%)=117ms  settle2%=375ms
+
