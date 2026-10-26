@@ -29,11 +29,6 @@ python3 modes/g1_check_mode.py eth0
 
 ## Safety
 
-The hardware scripts refuse to start unless the robot is in an allowed state. That check is `hardware/safety/hw_safety.py`, configured in `hardware/safety/safety_config.json`:
+The hardware arm scripts expect the robot in locked standing (mode 3) before they start.
 
-- Allowed FSM ids: 1, 4 and 501.
-- Development mode is allowed only for `g1_hw_ph_finger_control.py`.
-
-**Never switch modes while an arm script is running.** A stale arm command can fire the moment the mode changes; see the incident in `safety_config.json`.
-
-The ROS2 bridge's `mode_switcher_node.py` calls `modes/g1_mode_switcher.py`. Override the path with `G1_MODE_SWITCHER_SCRIPT`.
+**Never switch modes while an arm script is running.** A stale `rt/arm_sdk` command can fire the moment the mode changes.
