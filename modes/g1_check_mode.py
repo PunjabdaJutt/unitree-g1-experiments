@@ -12,6 +12,7 @@ FSM_NAMES = {
     4: "ready mode",
     706: "standing (squat2standup)",
     702: "standing (lie2standup)",
+    501: "walking_mode(stable)"
 }
 
 if __name__ == '__main__':
